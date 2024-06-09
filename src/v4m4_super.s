@@ -3,7 +3,7 @@
 
     IMPORT divTable
 
-    EXPORT proj_v3m3_super_asm
+    EXPORT proj_v4m4_super_asm
 
 CENTER_X        EQU ((320/2) << 13)
 CENTER_Y        EQU ((240/2) << 13)
@@ -12,7 +12,7 @@ MADAM           EQU 0x03300000
 MATH_STACK      EQU 0x0600
 MATH_START      EQU 0x07FC
 
-CMD_V3M3        EQU 2
+CMD_V4M4        EQU 1
 
 dst     RN r0
 src     RN r1
@@ -20,13 +20,13 @@ matrix  RN r2
 count   RN r3
 last    RN count
 
-cx      RN matrix
-cy      RN r4
-cz      RN r5
+ox      RN matrix
+oy      RN r4
 
-x       RN r6
-y       RN r7
-z       RN r8
+x       RN r5
+y       RN r6
+z       RN r7
+w       RN r8
 
 px      RN z
 py      RN r9
@@ -38,7 +38,7 @@ divLUT  RN r12
 
 input   RN lr
 
-proj_v3m3_super_asm
+proj_v4m4_super_asm
         stmfd sp!, {r4-r11, lr}
 
         add last, dst, count, lsl #3
@@ -46,52 +46,42 @@ proj_v3m3_super_asm
         mov	input, #(MADAM)
         add	input, input, #(MATH_STACK) ; MATRIX00
 
-        ldmia matrix!, {r4-r12}
-        stmia input!, {r4, r7, r10}
-        add input, input, #4
-        stmia input!, {r5, r8, r11}
-        add input, input, #4
-        stmia input, {r6, r9, r12}
+        ldmia matrix!, {r4-r11}
+        stmia input!, {r4-r11}
+        ldmia matrix!, {r4-r11}
+        stmia input!, {r4-r11}          ; input = B0
 
-        add input, input, #(8 * 4)      ; B0
-        add output, input, #(8 * 4)     ; B1
-        mov cmd, #(CMD_V3M3)
+        add output, input, #(8 * 4)     ; output = B1
+        mov cmd, #(CMD_V4M4)
+
+        mov w, #1 ; HACK TIPS: we can use cmd instead to save register! 8)
 
         ; start transform of the first vertex
         ldmia src!, {x, y, z}
-        stmia input, {x, y, z}
+        stmia input, {x, y, z, w} ; (x, y, z, 1)
         str cmd, [input, #(MATH_START - MATH_STACK - 0x40)]
-
-        ; load matrix offset
-        ldmia matrix, {cx, cy, cz}
 
         ; pre-load division table pointer
         ldr divLUT, =divTable
+
+        mov ox, #CENTER_X
+        mov oy, #CENTER_Y
 
 loop
         ; read next vertex
         ldmia src!, {x, y, z}
         ; write the next vertex (MADAM had enough time)
-        stmia input, {x, y, z}
+        stmia input, {x, y, z, w}
         ; read transform result
         ldmia output, {x, y, z}
         ; start next vertex transform
         str cmd, [input, #(MATH_START - MATH_STACK - 0x40)]
 
-        ; apply matrix offset
-        add x, x, cx
-        add y, y, cy
-        add z, z, cz
-
         ; project
         mov z, z, lsr #3
         ldr z, [divLUT, z, lsl #2]
-
-        mul py, y, z
-        add py, py, #CENTER_Y
-
-        mul px, x, z
-        add px, px, #CENTER_X
+        mla py, y, z, oy
+        mla px, x, z, ox
 
         ; write the result
         stmia dst!, {px, py}

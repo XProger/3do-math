@@ -75,6 +75,7 @@ mat34i m0;
 mat43i m2;
 //mat44i m3 = m2
 mat44i m4;
+mat44i m5; // transposed m4
 
 uint32 old_pad;
 sint32 mode_index = 0;
@@ -107,6 +108,8 @@ void proj_v4m4_c(void *dst, void *src, void *matrix, sint32 count);
 void proj_v4m4_asm(void *dst, void *src, void *matrix, sint32 count);
 void proj_v3m3_super_asm(void *dst, void *src, void *matrix, sint32 count);
 void proj_v3m3_super(void *dst, void *src, void *matrix, sint32 count);
+void proj_v4m4_super_asm(void *dst, void *src, void *matrix, sint32 count);
+void proj_v4m4_super(void *dst, void *src, void *matrix, sint32 count);
 
 static const TEST_MODE modes[] = {
     { "CPU C", proj_cpu_c, cube_v3, &m0 },
@@ -116,6 +119,7 @@ static const TEST_MODE modes[] = {
     { "MulMany Vec4Mat44 C", proj_v4m4_c, cube_v4, &m4 },
     { "MulMany Vec4Mat44 ASM", proj_v4m4_asm, cube_v4, &m4 },
     { "MulMany Vec3Mat33 ASM SUPER", proj_v3m3_super, cube_v3, &m2 },
+    { "MulMany Vec4Mat44 ASM SUPER", proj_v4m4_super, cube_v3, &m5 },
 };
 
 #define X_SINCOS(x,s,c) {\
@@ -242,6 +246,16 @@ void update(void)
         m4.e[3][1] = (m4.e[0][1] + m4.e[1][1] + m4.e[2][1]) * d;
         m4.e[3][2] = (m4.e[0][2] + m4.e[1][2] + m4.e[2][2]) * d;
         m4.e[3][2] += 1024 << 16;
+
+        m5.e[0][0] = c;
+        m5.e[0][2] = s;
+        m5.e[1][1] = 1 << FIX_SHIFT;
+        m5.e[2][0] = -s;
+        m5.e[2][2] = c;
+        m5.e[0][3] = (m5.e[0][0] + m5.e[0][1] + m5.e[0][2]) * d;
+        m5.e[1][3] = (m5.e[1][0] + m5.e[1][1] + m5.e[1][2]) * d;
+        m5.e[2][3] = (m5.e[2][0] + m5.e[2][1] + m5.e[2][2]) * d;
+        m5.e[2][3] += 1024 << 16;
     }
 }
 
@@ -350,6 +364,20 @@ void proj_v3m3_super(void *dst, void *src, void *matrix, sint32 count)
     super_matrix = matrix;
     super_count = count;
     Super(proj_v3m3_super_wrap);
+}
+
+void proj_v4m4_super_wrap(void)
+{
+    proj_v4m4_super_asm(super_dst, super_src, super_matrix, super_count);
+}
+
+void proj_v4m4_super(void *dst, void *src, void *matrix, sint32 count)
+{
+    super_dst = dst;
+    super_src = src;
+    super_matrix = matrix;
+    super_count = count;
+    Super(proj_v4m4_super_wrap);
 }
 
 void prep(void)

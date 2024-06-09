@@ -1,7 +1,5 @@
 // based on https://github.com/trapexit/3do-example-folio
 #include "super.h"
-#include "kernel.h"
-#include "stdio.h"
 
 static void _SWI_Super(void (*func)(void))
 {
